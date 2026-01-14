@@ -79,8 +79,11 @@ on run {input, parameters}
 	set logPath to (POSIX path of (path to desktop folder)) & "watermark_app_log.txt"
 	do shell script "/bin/echo " & quoted form of ("---- RUN " & (current date as text) & " ----") & " >> " & quoted form of logPath
 
+	set startTime to (current date)
+	set totalCount to count of input
+
 	-- Barra de progreso
-	set progress to my startProgressWindow("Procesando imagenes...", (count of input))
+	set progress to my startProgressWindow("Procesando imagenes...", totalCount)
 
 	repeat with f in input
 		my advanceProgressWindow(progress)
@@ -111,6 +114,8 @@ on run {input, parameters}
 	end repeat
 
 	my endProgressWindow(progress)
+	set elapsedSec to ((current date) - startTime) as real
+	set elapsedText to my formatETA(elapsedSec)
 
 	-- Guardar ultimos valores para la proxima ejecucion
 	if input is not {} then
@@ -124,7 +129,7 @@ on run {input, parameters}
 	my setPref("jpgQuality", jpgQuality as text)
 	my setPref("position", posChoice as text)
 
-	display dialog "Listo.\nArchivos guardados en:\n" & outDir & "\n\nLog:\n" & logPath buttons {"OK"} default button "OK"
+	display dialog "Listo.\nArchivos guardados en:\n" & outDir & "\n\nProcesadas: " & totalCount & "\nTiempo: " & elapsedText & "\n\nLog:\n" & logPath buttons {"OK"} default button "OK"
 	return input
 end run
 
