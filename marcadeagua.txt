@@ -1,0 +1,8 @@
+🧱 Paso 1 — Crear la app base
+	1.	Abre Automator
+	2.	Archivo → Nuevo
+	3.	Elige Aplicacion
+	4.	Arriba:
+	•	El flujo de trabajo recibe el elemento actual: Archivos
+	5.	Agrega:
+	•	Ejecutar AppleScript
