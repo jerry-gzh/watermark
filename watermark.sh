@@ -9,7 +9,7 @@ on run {input, parameters}
 	set input to my filterExistingFiles(input)
 	if input is {} then
 		set lastImgDir to my getPref("lastImgDir", "")
-		if lastImgDir is not "" then
+		if lastImgDir is not "" and my pathExists(lastImgDir) then
 			set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} default location ((POSIX file lastImgDir) as alias) with multiple selections allowed
 		else
 			set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} with multiple selections allowed
@@ -18,7 +18,7 @@ on run {input, parameters}
 
 	-- Elegir logo (PNG)
 	set lastLogoDir to my getPref("lastLogoDir", "")
-	if lastLogoDir is not "" then
+	if lastLogoDir is not "" and my pathExists(lastLogoDir) then
 		set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):" default location ((POSIX file lastLogoDir) as alias)
 	else
 		set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):"
@@ -53,7 +53,7 @@ on run {input, parameters}
 
 	-- Carpeta destino
 	set lastOutDir to my getPref("lastOutDir", "")
-	if lastOutDir is not "" then
+	if lastOutDir is not "" and my pathExists(lastOutDir) then
 		set outFolder to choose folder with prompt "Selecciona la carpeta destino:" default location ((POSIX file lastOutDir) as alias)
 	else
 		set outFolder to choose folder with prompt "Selecciona la carpeta destino:"
@@ -158,6 +158,15 @@ on parentDirPath(p)
 	if dirPath does not end with "/" then set dirPath to dirPath & "/"
 	return dirPath
 end parentDirPath
+
+on pathExists(p)
+	try
+		do shell script "/bin/test -d " & quoted form of p
+		return true
+	on error
+		return false
+	end try
+end pathExists
 
 -- Preferencias persistentes (defaults)
 on getPref(key, defaultValue)
