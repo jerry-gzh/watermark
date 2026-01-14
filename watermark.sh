@@ -50,20 +50,16 @@ on run {input, parameters}
 	set approvedPreview to false
 	repeat until approvedPreview is true
 		-- Formulario unico
-		set p to my promptParams(dPct, dOp, dMargin, dQ)
+		set p to my promptParams(dPct, dOp, dMargin, dQ, lastPos)
 		set wmPct to wmPct of p
 		set wmOpacity to wmOpacity of p
 		set wmMargin to wmMargin of p
 		set jpgQuality to jpgQuality of p
+		set posChoice to posChoice of p
 		set dPct to wmPct
 		set dOp to wmOpacity
 		set dMargin to wmMargin
 		set dQ to jpgQuality
-
-		-- Posicion (recordar ultima)
-		set posChoice to choose from list {"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"} with prompt "Elige la posicion:" default items {lastPos}
-		if posChoice is false then return input
-		set posChoice to item 1 of posChoice
 		set lastPos to posChoice
 
 		set gravity to "northeast"
@@ -224,8 +220,8 @@ on setPref(key, value)
 	do shell script "defaults write com.watermark.app " & key & " " & quoted form of value
 end setPref
 
-on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality)
-	-- Ventana con 4 campos
+on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality, defaultPos)
+	-- Ventana con 5 campos
 	set alert to current application's NSAlert's alloc()'s init()
 	alert's setMessageText:"Parametros de marca de agua"
 	alert's setInformativeText:"Configura los valores y presiona Continuar."
@@ -234,21 +230,24 @@ on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality)
 
 	-- Vista contenedora
 	set boxW to 360
-	set boxH to 150
+	set boxH to 185
 	set v to current application's NSView's alloc()'s initWithFrame:{{0, 0}, {boxW, boxH}}
 
 	-- Labels + fields
-	set lbl1 to my makeLabel("Tamano (%)", 0, 115)
-	set fld1 to my makeField(defaultPct as text, 140, 110, 200)
+	set lbl1 to my makeLabel("Tamano (%)", 0, 150)
+	set fld1 to my makeField(defaultPct as text, 140, 145, 200)
 
-	set lbl2 to my makeLabel("Opacidad (0-100)", 0, 80)
-	set fld2 to my makeField(defaultOpacity as text, 140, 75, 200)
+	set lbl2 to my makeLabel("Opacidad (0-100)", 0, 115)
+	set fld2 to my makeField(defaultOpacity as text, 140, 110, 200)
 
-	set lbl3 to my makeLabel("Margen (px)", 0, 45)
-	set fld3 to my makeField(defaultMargin as text, 140, 40, 200)
+	set lbl3 to my makeLabel("Margen (px)", 0, 80)
+	set fld3 to my makeField(defaultMargin as text, 140, 75, 200)
 
-	set lbl4 to my makeLabel("Calidad JPG (80-100)", 0, 10)
-	set fld4 to my makeField(defaultQuality as text, 140, 5, 200)
+	set lbl4 to my makeLabel("Calidad JPG (80-100)", 0, 45)
+	set fld4 to my makeField(defaultQuality as text, 140, 40, 200)
+
+	set lbl5 to my makeLabel("Posicion", 0, 10)
+	set popPos to my makePopup({"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"}, defaultPos, 140, 5, 200)
 
 	v's addSubview:lbl1
 	v's addSubview:fld1
@@ -258,6 +257,8 @@ on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality)
 	v's addSubview:fld3
 	v's addSubview:lbl4
 	v's addSubview:fld4
+	v's addSubview:lbl5
+	v's addSubview:popPos
 
 	alert's setAccessoryView:v
 
@@ -269,6 +270,7 @@ on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality)
 	set opStr to (fld2's stringValue()) as text
 	set marginStr to (fld3's stringValue()) as text
 	set qualityStr to (fld4's stringValue()) as text
+	set posStr to (popPos's titleOfSelectedItem()) as text
 
 	-- Validar / convertir a int con fallback
 	set pctVal to my toInt(pctStr, defaultPct)
@@ -284,7 +286,7 @@ on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality)
 	if qualityVal < 80 then set qualityVal to 80
 	if qualityVal > 100 then set qualityVal to 100
 
-	return {wmPct:pctVal, wmOpacity:opVal, wmMargin:marginVal, jpgQuality:qualityVal}
+	return {wmPct:pctVal, wmOpacity:opVal, wmMargin:marginVal, jpgQuality:qualityVal, posChoice:posStr}
 end promptParams
 
 on normalizeInput(rawInput)
@@ -458,6 +460,17 @@ on makeField(t, x, y, w)
 	fld's setStringValue:t
 	return fld
 end makeField
+
+on makePopup(itemsList, selectedItem, x, y, w)
+	set pop to current application's NSPopUpButton's alloc()'s initWithFrame:{{x, y}, {w, 24}} pullsDown:false
+	repeat with itemTitle in itemsList
+		pop's addItemWithTitle:(itemTitle as text)
+	end repeat
+	try
+		pop's selectItemWithTitle:(selectedItem as text)
+	end try
+	return pop
+end makePopup
 
 on toInt(t, fallbackVal)
 	try
