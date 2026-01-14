@@ -111,6 +111,7 @@ on run {input, parameters}
 
 	set startTime to (current date)
 	set totalCount to count of input
+	set outputPaths to {}
 
 	-- Barra de progreso
 	set progress to my startProgressWindow("Procesando imagenes...", totalCount)
@@ -120,6 +121,7 @@ on run {input, parameters}
 		set inPath to my toPosixPath(f)
 		set baseName to my filenameNoExt(inPath)
 		set outPath to outDir & baseName & "_wm.jpg"
+		set end of outputPaths to outPath
 
 		-- Obtener ancho de la foto
 		set wStr to do shell script quoted form of magickPath & " identify -format %w " & quoted form of inPath
@@ -151,6 +153,13 @@ on run {input, parameters}
 	my endProgressWindow(progress)
 	set elapsedSec to ((current date) - startTime) as real
 	set elapsedText to my formatETA(elapsedSec)
+
+	-- Abrir resultados en Vista Previa
+	if outputPaths is not {} then
+		try
+			do shell script "/usr/bin/open -a Preview " & my joinQuotedPaths(outputPaths)
+		end try
+	end if
 
 	-- Guardar ultimos valores para la proxima ejecucion
 	if input is not {} then
@@ -197,6 +206,14 @@ on parentDirPath(p)
 	if dirPath does not end with "/" then set dirPath to dirPath & "/"
 	return dirPath
 end parentDirPath
+
+on joinQuotedPaths(pathsList)
+	set parts to ""
+	repeat with p in pathsList
+		set parts to parts & " " & quoted form of (p as text)
+	end repeat
+	return parts
+end joinQuotedPaths
 
 on pathExists(p)
 	try
