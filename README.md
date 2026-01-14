@@ -1,8 +1,8 @@
 # Agrega marca de agua a fotos por lotes 
 
-Esta es una aplicacion basica pero poderosa para establecer una marca de agua en fotos de manera por lotes.
+Esta es una aplicacion basica pero poderosa para establecer una marca de agua en fotos por lotes.
 
-# Documentacion de la aplicacion de marca de agua (Automator)
+# Documentacion de la aplicacion (Automator)
 
 Esta guia explica como crear y usar la app en Automator con el script `watermark.sh`.
 
