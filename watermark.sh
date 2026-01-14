@@ -84,14 +84,19 @@ on run {input, parameters}
 			quoted form of previewPath
 		try
 			do shell script "/bin/zsh -lc " & quoted form of previewCmd
-			do shell script "/usr/bin/open -a Preview " & quoted form of previewPath
+			set previewPid to my openQuickLook(previewPath)
 		on error errMsg
 			display dialog "Error generando previsualizacion:\n\n" & errMsg buttons {"OK"} default button "OK"
 			return input
 		end try
 
 		set resp to display dialog "Previsualizacion generada.\n\nVerifica la primera imagen y confirma si los parametros son correctos." buttons {"Modificar", "Aceptar"} default button "Aceptar"
-		if button returned of resp is "Aceptar" then set approvedPreview to true
+		if button returned of resp is "Aceptar" then
+			my closeQuickLook(previewPid)
+			set approvedPreview to true
+		else
+			my closeQuickLook(previewPid)
+		end if
 	end repeat
 
 	-- Carpeta destino
@@ -206,6 +211,23 @@ on parentDirPath(p)
 	if dirPath does not end with "/" then set dirPath to dirPath & "/"
 	return dirPath
 end parentDirPath
+
+on openQuickLook(filePath)
+	try
+		set pidStr to do shell script "/bin/sh -c " & quoted form of ("/usr/bin/qlmanage -p " & quoted form of filePath & " >/dev/null 2>&1 & echo $!")
+		return pidStr as integer
+	on error
+		return 0
+	end try
+end openQuickLook
+
+on closeQuickLook(pidVal)
+	try
+		if pidVal is not 0 then
+			do shell script "/bin/kill " & pidVal
+		end if
+	end try
+end closeQuickLook
 
 on joinQuotedPaths(pathsList)
 	set parts to ""
