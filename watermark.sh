@@ -25,42 +25,6 @@ on run {input, parameters}
 	end if
 	set wmPath to POSIX path of wmAlias
 
--- Cargar defaults guardados
-    set dPct to (my getPref("wmPct", "18")) as integer
-    set dOp to (my getPref("wmOpacity", "35")) as integer
-    set dMargin to (my getPref("wmMargin", "30")) as integer
-    set dQ to (my getPref("jpgQuality", "98")) as integer
-
--- Formulario unico
-    set p to my promptParams(dPct, dOp, dMargin, dQ)
-    set wmPct to wmPct of p
-    set wmOpacity to wmOpacity of p
-    set wmMargin to wmMargin of p
-    set jpgQuality to jpgQuality of p
-
-	-- Posicion (recordar ultima)
-	set lastPos to my getPref("position", "Arriba derecha")
-	set posChoice to choose from list {"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"} with prompt "Elige la posicion:" default items {lastPos}
-	if posChoice is false then return input
-	set posChoice to item 1 of posChoice
-
-	set gravity to "northeast"
-	if posChoice is "Arriba izquierda" then set gravity to "northwest"
-	if posChoice is "Arriba derecha" then set gravity to "northeast"
-	if posChoice is "Abajo izquierda" then set gravity to "southwest"
-	if posChoice is "Abajo derecha" then set gravity to "southeast"
-	if posChoice is "Centro" then set gravity to "center"
-
-	-- Carpeta destino
-	set lastOutDir to my getPref("lastOutDir", "")
-	if lastOutDir is not "" and my pathExists(lastOutDir) then
-		set outFolder to choose folder with prompt "Selecciona la carpeta destino:" default location ((POSIX file lastOutDir) as alias)
-	else
-		set outFolder to choose folder with prompt "Selecciona la carpeta destino:"
-	end if
-	set outDir to POSIX path of outFolder
-	if outDir does not end with "/" then set outDir to outDir & "/"
-
 	-- Ruta ImageMagick
 	set magickPath to "/opt/homebrew/bin/magick"
 	try
@@ -74,6 +38,75 @@ on run {input, parameters}
 			return input
 		end try
 	end try
+
+-- Cargar defaults guardados
+    set dPct to (my getPref("wmPct", "18")) as integer
+    set dOp to (my getPref("wmOpacity", "35")) as integer
+    set dMargin to (my getPref("wmMargin", "30")) as integer
+    set dQ to (my getPref("jpgQuality", "98")) as integer
+
+	-- Previsualizacion para validar parametros
+	set lastPos to my getPref("position", "Arriba derecha")
+	set approvedPreview to false
+	repeat until approvedPreview is true
+		-- Formulario unico
+		set p to my promptParams(dPct, dOp, dMargin, dQ)
+		set wmPct to wmPct of p
+		set wmOpacity to wmOpacity of p
+		set wmMargin to wmMargin of p
+		set jpgQuality to jpgQuality of p
+		set dPct to wmPct
+		set dOp to wmOpacity
+		set dMargin to wmMargin
+		set dQ to jpgQuality
+
+		-- Posicion (recordar ultima)
+		set posChoice to choose from list {"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"} with prompt "Elige la posicion:" default items {lastPos}
+		if posChoice is false then return input
+		set posChoice to item 1 of posChoice
+		set lastPos to posChoice
+
+		set gravity to "northeast"
+		if posChoice is "Arriba izquierda" then set gravity to "northwest"
+		if posChoice is "Arriba derecha" then set gravity to "northeast"
+		if posChoice is "Abajo izquierda" then set gravity to "southwest"
+		if posChoice is "Abajo derecha" then set gravity to "southeast"
+		if posChoice is "Centro" then set gravity to "center"
+
+		-- Generar previsualizacion de la primera imagen
+		set previewSrc to my toPosixPath(item 1 of input)
+		set wStr to do shell script quoted form of magickPath & " identify -format %w " & quoted form of previewSrc
+		set wInt to wStr as integer
+		set wmW to (wInt * wmPct) div 100
+		if wmW < 1 then set wmW to 1
+		set previewPath to "/tmp/watermark_preview.jpg"
+		set previewCmd to quoted form of magickPath & " " & quoted form of previewSrc & " -auto-orient " & ¬
+			"\\( " & quoted form of wmPath & " -alpha on -resize " & wmW & "x \\) " & ¬
+			"-gravity " & gravity & " -geometry +" & wmMargin & "+" & wmMargin & " " & ¬
+			"-compose dissolve -define compose:args=" & wmOpacity & " -composite " & ¬
+			"-sampling-factor 4:4:4 -quality " & jpgQuality & " " & ¬
+			quoted form of previewPath
+		try
+			do shell script "/bin/zsh -lc " & quoted form of previewCmd
+			do shell script "/usr/bin/open -a Preview " & quoted form of previewPath
+		on error errMsg
+			display dialog "Error generando previsualizacion:\n\n" & errMsg buttons {"OK"} default button "OK"
+			return input
+		end try
+
+		set resp to display dialog "Previsualizacion generada.\n\nVerifica la primera imagen y confirma si los parametros son correctos." buttons {"Modificar", "Aceptar"} default button "Aceptar"
+		if button returned of resp is "Aceptar" then set approvedPreview to true
+	end repeat
+
+	-- Carpeta destino
+	set lastOutDir to my getPref("lastOutDir", "")
+	if lastOutDir is not "" and my pathExists(lastOutDir) then
+		set outFolder to choose folder with prompt "Selecciona la carpeta destino:" default location ((POSIX file lastOutDir) as alias)
+	else
+		set outFolder to choose folder with prompt "Selecciona la carpeta destino:"
+	end if
+	set outDir to POSIX path of outFolder
+	if outDir does not end with "/" then set outDir to outDir & "/"
 
 	-- Log (solo si hay errores)
 	set logPath to (POSIX path of (path to desktop folder)) & "watermark_app_log.txt"
