@@ -75,9 +75,10 @@ on run {input, parameters}
 		end try
 	end try
 
-	-- Log
+	-- Log (solo si hay errores)
 	set logPath to (POSIX path of (path to desktop folder)) & "watermark_app_log.txt"
-	do shell script "/bin/echo " & quoted form of ("---- RUN " & (current date as text) & " ----") & " >> " & quoted form of logPath
+	set logCreated to false
+	set errorCount to 0
 
 	set startTime to (current date)
 	set totalCount to count of input
@@ -108,6 +109,11 @@ on run {input, parameters}
 		try
 			do shell script "/bin/zsh -lc " & quoted form of cmd
 		on error errMsg
+			if logCreated is false then
+				do shell script "/bin/echo " & quoted form of ("---- RUN " & (current date as text) & " ----") & " >> " & quoted form of logPath
+				set logCreated to true
+			end if
+			set errorCount to errorCount + 1
 			do shell script "/bin/echo " & quoted form of ("ERROR: " & inPath & " :: " & errMsg) & " >> " & quoted form of logPath
 			display dialog "Error procesando:\n" & inPath & "\n\nDetalle:\n" & errMsg buttons {"OK"} default button "OK"
 		end try
@@ -129,7 +135,11 @@ on run {input, parameters}
 	my setPref("jpgQuality", jpgQuality as text)
 	my setPref("position", posChoice as text)
 
-	display dialog "Listo.\nArchivos guardados en:\n" & outDir & "\n\nProcesadas: " & totalCount & "\nTiempo: " & elapsedText & "\n\nLog:\n" & logPath buttons {"OK"} default button "OK"
+	set logInfo to "Sin errores."
+	if errorCount > 0 then
+		set logInfo to "Errores: " & errorCount & "\nLog:\n" & logPath
+	end if
+	display dialog "Listo.\nArchivos guardados en:\n" & outDir & "\n\nProcesadas: " & totalCount & "\nTiempo: " & elapsedText & "\n\n" & logInfo buttons {"OK"} default button "OK"
 	return input
 end run
 
