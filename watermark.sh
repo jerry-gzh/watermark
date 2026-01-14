@@ -8,11 +8,21 @@ on run {input, parameters}
 	set input to my normalizeInput(input)
 	set input to my filterExistingFiles(input)
 	if input is {} then
-		set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} with multiple selections allowed
+		set lastImgDir to my getPref("lastImgDir", "")
+		if lastImgDir is not "" then
+			set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} default location ((POSIX file lastImgDir) as alias) with multiple selections allowed
+		else
+			set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} with multiple selections allowed
+		end if
 	end if
 
 	-- Elegir logo (PNG)
-	set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):"
+	set lastLogoDir to my getPref("lastLogoDir", "")
+	if lastLogoDir is not "" then
+		set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):" default location ((POSIX file lastLogoDir) as alias)
+	else
+		set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):"
+	end if
 	set wmPath to POSIX path of wmAlias
 
 -- Cargar defaults guardados
@@ -42,7 +52,12 @@ on run {input, parameters}
 	if posChoice is "Centro" then set gravity to "center"
 
 	-- Carpeta destino
-	set outFolder to choose folder with prompt "Selecciona la carpeta destino:"
+	set lastOutDir to my getPref("lastOutDir", "")
+	if lastOutDir is not "" then
+		set outFolder to choose folder with prompt "Selecciona la carpeta destino:" default location ((POSIX file lastOutDir) as alias)
+	else
+		set outFolder to choose folder with prompt "Selecciona la carpeta destino:"
+	end if
 	set outDir to POSIX path of outFolder
 	if outDir does not end with "/" then set outDir to outDir & "/"
 
@@ -98,6 +113,11 @@ on run {input, parameters}
 	my endProgressWindow(progress)
 
 	-- Guardar ultimos valores para la proxima ejecucion
+	if input is not {} then
+		my setPref("lastImgDir", my parentDirPath(my toPosixPath(item 1 of input)))
+	end if
+	my setPref("lastLogoDir", my parentDirPath(wmPath))
+	my setPref("lastOutDir", outDir)
 	my setPref("wmPct", wmPct as text)
 	my setPref("wmOpacity", wmOpacity as text)
 	my setPref("wmMargin", wmMargin as text)
@@ -127,6 +147,12 @@ on filenameNoExt(p)
 	set nameOnly to do shell script "/bin/echo " & quoted form of bn & " | /usr/bin/sed 's/\\.[^.]*$//'"
 	return nameOnly
 end filenameNoExt
+
+on parentDirPath(p)
+	set dirPath to do shell script "/usr/bin/dirname " & quoted form of p
+	if dirPath does not end with "/" then set dirPath to dirPath & "/"
+	return dirPath
+end parentDirPath
 
 -- Preferencias persistentes (defaults)
 on getPref(key, defaultValue)
