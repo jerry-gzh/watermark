@@ -182,7 +182,7 @@ on run {input, parameters}
 	if errorCount > 0 then
 		set logInfo to "Errores: " & errorCount & "\nLog:\n" & logPath
 	end if
-	display dialog "Listo.\nArchivos guardados en:\n" & outDir & "\n\nProcesadas: " & totalCount & "\nTiempo: " & elapsedText & "\n\n" & logInfo buttons {"OK"} default button "OK"
+	my showProgressSummary(progress, outDir, totalCount, elapsedText, logInfo)
 	return input
 end run
 
@@ -387,6 +387,7 @@ on startProgressWindow(titleText, totalCount)
 	lbl's setDrawsBackground:false
 	lbl's setEditable:false
 	lbl's setSelectable:false
+	lbl's setAlignment:(current application's NSTextAlignmentCenter)
 
 	v's addSubview:bar
 	v's addSubview:lbl
@@ -458,6 +459,29 @@ on endProgressWindow(p)
 		win's orderOut:(missing value)
 	end try
 end endProgressWindow
+
+on showProgressSummary(p, outDir, totalCount, elapsedText, logInfo)
+	try
+		set alert to alert of p
+		alert's setMessageText:"Listo"
+		alert's setInformativeText:("Archivos guardados en:\n" & outDir & "\n\n" & logInfo)
+		try
+			(alert's messageTextField()'s setAlignment:(current application's NSTextAlignmentCenter))
+			(alert's informativeTextField()'s setAlignment:(current application's NSTextAlignmentCenter))
+		end try
+		try
+			set bar to bar of p
+			bar's setDoubleValue:totalCount
+			bar's display()
+		end try
+		try
+			set lbl to label of p
+			lbl's setStringValue:("Procesadas: " & totalCount & "  Tiempo: " & elapsedText)
+			lbl's setAlignment:(current application's NSTextAlignmentCenter)
+			lbl's display()
+		end try
+	end try
+end showProgressSummary
 
 on formatETA(secondsVal)
 	set s to secondsVal as integer
