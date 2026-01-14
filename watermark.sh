@@ -173,7 +173,7 @@ on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality)
 	alert's setMessageText:"Parametros de marca de agua"
 	alert's setInformativeText:"Configura los valores y presiona Continuar."
 	alert's addButtonWithTitle:"Continuar"
-	alert's addButtonWithTitle:"Cancelar"
+	alert's addButtonWithTitle:"Cerrar"
 
 	-- Vista contenedora
 	set boxW to 360
@@ -269,7 +269,7 @@ end filterExistingFiles
 on startProgressWindow(titleText, totalCount)
 	set alert to current application's NSAlert's alloc()'s init()
 	alert's setMessageText:titleText
-	alert's addButtonWithTitle:"Cancelar"
+	alert's addButtonWithTitle:"Cerrar"
 
 	set boxW to 360
 	set boxH to 70
