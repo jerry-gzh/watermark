@@ -4,7 +4,7 @@ Esta es una aplicacion basica pero poderosa para establecer una marca de agua en
 
 # Documentacion de la aplicacion (Automator)
 
-Esta guia explica como crear y usar la app en Automator con el script `watermark.sh`.
+Esta guia explica como crear y usar la app en Automator con el script `basics.sh`.
 
 ## Requisitos
 
@@ -27,7 +27,7 @@ Si no tienes Homebrew, sigue las instrucciones en https://brew.sh
 4) En la barra de acciones, busca **Run AppleScript** (o **Ejecutar AppleScript**).
 5) Arrastra **Run AppleScript** al panel derecho.
 6) Borra el contenido por defecto del bloque.
-7) Abre el archivo `watermark.sh` y copia todo su contenido.
+7) Abre el archivo `basics.sh` y copia todo su contenido.
 8) Pega el contenido en el bloque de **Run AppleScript**.
 9) Guarda la app: **Archivo > Guardar...** y elige una carpeta (por ejemplo, Aplicaciones).
 
@@ -69,5 +69,5 @@ En el escritorio, como `watermark_app_log.txt`. Solo se crea si hubo errores.
 
 ## Archivos
 
-- Script principal: `watermark.sh`
+- Script principal: `basics.sh`
 - Documento: `DOCUMENTACION.md`

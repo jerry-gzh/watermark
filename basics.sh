@@ -1,7 +1,5 @@
 use framework "AppKit"
 use framework "Foundation"
-use scripting additions
-
 on run {input, parameters}
 
 	-- Normalizar input (Automator puede pasar missing value, ruta en texto o un solo item)
@@ -10,34 +8,29 @@ on run {input, parameters}
 	if input is {} then
 		set lastImgDir to my getPref("lastImgDir", "")
 		if lastImgDir is not "" and my pathExists(lastImgDir) then
-			set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} default location ((POSIX file lastImgDir) as alias) with multiple selections allowed
+			set input to my chooseImageFiles("Selecciona las imagenes a procesar:", lastImgDir)
 		else
-			set input to choose file with prompt "Selecciona las imagenes a procesar:" of type {"public.image"} with multiple selections allowed
+			set input to my chooseImageFiles("Selecciona las imagenes a procesar:", missing value)
 		end if
 	end if
 
 	-- Elegir logo (PNG)
 	set lastLogoDir to my getPref("lastLogoDir", "")
 	if lastLogoDir is not "" and my pathExists(lastLogoDir) then
-		set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):" default location ((POSIX file lastLogoDir) as alias)
+		set wmPath to my chooseSingleFile("Elige tu logo (PNG con fondo transparente):", lastLogoDir, {"png"})
 	else
-		set wmAlias to choose file with prompt "Elige tu logo (PNG con fondo transparente):"
+		set wmPath to my chooseSingleFile("Elige tu logo (PNG con fondo transparente):", missing value, {"png"})
 	end if
-	set wmPath to POSIX path of wmAlias
 
 	-- Ruta ImageMagick
 	set magickPath to "/opt/homebrew/bin/magick"
-	try
-		do shell script "/bin/test -x " & quoted form of magickPath
-	on error
+	if my isExecutableFile(magickPath) is false then
 		set magickPath to "/usr/local/bin/magick"
-		try
-			do shell script "/bin/test -x " & quoted form of magickPath
-		on error
-			display dialog "No encontre ImageMagick (magick).\n\nInstalalo con:\nbrew install imagemagick" buttons {"OK"} default button "OK"
+		if my isExecutableFile(magickPath) is false then
+			my showMessage("No encontre ImageMagick (magick).", "Instalalo con:\nbrew install imagemagick")
 			return input
-		end try
-	end try
+		end if
+	end if
 
 -- Cargar defaults guardados
     set dPct to (my getPref("wmPct", "18")) as integer
@@ -71,7 +64,7 @@ on run {input, parameters}
 
 		-- Generar previsualizacion de la primera imagen
 		set previewSrc to my toPosixPath(item 1 of input)
-		set wStr to do shell script quoted form of magickPath & " identify -format %w " & quoted form of previewSrc
+		set wStr to my runShell(my shellQuote(magickPath) & " identify -format %w " & my shellQuote(previewSrc))
 		set wInt to wStr as integer
 		set wmW to (wInt * wmPct) div 100
 		if wmW < 1 then set wmW to 1
@@ -83,15 +76,15 @@ on run {input, parameters}
 			"-sampling-factor 4:4:4 -quality " & jpgQuality & " " & ¬
 			quoted form of previewPath
 		try
-			do shell script "/bin/zsh -lc " & quoted form of previewCmd
+			my runShell("/bin/zsh -lc " & my shellQuote(previewCmd))
 			set previewPid to my openQuickLook(previewPath)
 		on error errMsg
-			display dialog "Error generando previsualizacion:\n\n" & errMsg buttons {"OK"} default button "OK"
+			my showMessage("Error generando previsualizacion.", errMsg)
 			return input
 		end try
 
-		set resp to display dialog "Previsualizacion generada.\n\nVerifica la primera imagen y confirma si los parametros son correctos." buttons {"Modificar", "Aceptar"} default button "Aceptar"
-		if button returned of resp is "Aceptar" then
+		set chosenButton to my askChoice("Previsualizacion generada.", "Verifica la primera imagen y confirma si los parametros son correctos.", {"Modificar", "Aceptar"}, "Aceptar")
+		if chosenButton is "Aceptar" then
 			my closeQuickLook(previewPid)
 			set approvedPreview to true
 		else
@@ -102,19 +95,18 @@ on run {input, parameters}
 	-- Carpeta destino
 	set lastOutDir to my getPref("lastOutDir", "")
 	if lastOutDir is not "" and my pathExists(lastOutDir) then
-		set outFolder to choose folder with prompt "Selecciona la carpeta destino:" default location ((POSIX file lastOutDir) as alias)
+		set outDir to my chooseOutputFolder("Selecciona la carpeta destino:", lastOutDir)
 	else
-		set outFolder to choose folder with prompt "Selecciona la carpeta destino:"
+		set outDir to my chooseOutputFolder("Selecciona la carpeta destino:", missing value)
 	end if
-	set outDir to POSIX path of outFolder
 	if outDir does not end with "/" then set outDir to outDir & "/"
 
 	-- Log (solo si hay errores)
-	set logPath to (POSIX path of (path to desktop folder)) & "watermark_app_log.txt"
+	set logPath to my desktopPath() & "watermark_app_log.txt"
 	set logCreated to false
 	set errorCount to 0
 
-	set startTime to (current date)
+	set startTime to my nowSeconds()
 	set totalCount to count of input
 	set outputPaths to {}
 
@@ -129,7 +121,7 @@ on run {input, parameters}
 		set end of outputPaths to outPath
 
 		-- Obtener ancho de la foto
-		set wStr to do shell script quoted form of magickPath & " identify -format %w " & quoted form of inPath
+		set wStr to my runShell(my shellQuote(magickPath) & " identify -format %w " & my shellQuote(inPath))
 		set wInt to wStr as integer
 		set wmW to (wInt * wmPct) div 100
 		if wmW < 1 then set wmW to 1
@@ -143,26 +135,26 @@ on run {input, parameters}
 			quoted form of outPath
 
 		try
-			do shell script "/bin/zsh -lc " & quoted form of cmd
+			my runShell("/bin/zsh -lc " & my shellQuote(cmd))
 		on error errMsg
 			if logCreated is false then
-				do shell script "/bin/echo " & quoted form of ("---- RUN " & (current date as text) & " ----") & " >> " & quoted form of logPath
+				my appendTextLine(logPath, "---- RUN " & my nowDateText() & " ----")
 				set logCreated to true
 			end if
 			set errorCount to errorCount + 1
-			do shell script "/bin/echo " & quoted form of ("ERROR: " & inPath & " :: " & errMsg) & " >> " & quoted form of logPath
-			display dialog "Error procesando:\n" & inPath & "\n\nDetalle:\n" & errMsg buttons {"OK"} default button "OK"
+			my appendTextLine(logPath, "ERROR: " & inPath & " :: " & errMsg)
+			my showMessage("Error procesando:\n" & inPath, errMsg)
 		end try
 	end repeat
 
 	my endProgressWindow(progress)
-	set elapsedSec to ((current date) - startTime) as real
+	set elapsedSec to (my nowSeconds() - startTime) as real
 	set elapsedText to my formatETA(elapsedSec)
 
 	-- Abrir resultados en Vista Previa
 	if outputPaths is not {} then
 		try
-			do shell script "/usr/bin/open -a Preview " & my joinQuotedPaths(outputPaths)
+			my runShell("/usr/bin/open -a Preview " & my joinQuotedPaths(outputPaths))
 		end try
 	end if
 
@@ -189,9 +181,7 @@ end run
 
 -- Helpers
 on askNumber(promptText, defaultValue)
-	set d to display dialog promptText default answer (defaultValue as text) buttons {"Cancelar", "OK"} default button "OK"
-	if button returned of d is "Cancelar" then error number -128
-	set t to text returned of d
+	set t to my promptForText(promptText, defaultValue as text)
 	try
 		set n to t as integer
 	on error
@@ -201,20 +191,20 @@ on askNumber(promptText, defaultValue)
 end askNumber
 
 on filenameNoExt(p)
-	set bn to do shell script "/usr/bin/basename " & quoted form of p
-	set nameOnly to do shell script "/bin/echo " & quoted form of bn & " | /usr/bin/sed 's/\\.[^.]*$//'"
-	return nameOnly
+	set nsPath to current application's NSString's stringWithString:p
+	return ((nsPath's lastPathComponent()'s stringByDeletingPathExtension()) as text)
 end filenameNoExt
 
 on parentDirPath(p)
-	set dirPath to do shell script "/usr/bin/dirname " & quoted form of p
+	set nsPath to current application's NSString's stringWithString:p
+	set dirPath to ((nsPath's stringByDeletingLastPathComponent()) as text)
 	if dirPath does not end with "/" then set dirPath to dirPath & "/"
 	return dirPath
 end parentDirPath
 
 on openQuickLook(filePath)
 	try
-		set pidStr to do shell script "/bin/sh -c " & quoted form of ("/usr/bin/qlmanage -p " & quoted form of filePath & " >/dev/null 2>&1 & echo $!")
+		set pidStr to my runShell("/bin/sh -c " & my shellQuote("/usr/bin/qlmanage -p " & my shellQuote(filePath) & " >/dev/null 2>&1 & echo $!"))
 		return pidStr as integer
 	on error
 		return 0
@@ -224,7 +214,7 @@ end openQuickLook
 on closeQuickLook(pidVal)
 	try
 		if pidVal is not 0 then
-			do shell script "/bin/kill " & pidVal
+			my runShell("/bin/kill " & pidVal)
 		end if
 	end try
 end closeQuickLook
@@ -238,86 +228,36 @@ on joinQuotedPaths(pathsList)
 end joinQuotedPaths
 
 on pathExists(p)
-	try
-		do shell script "/bin/test -d " & quoted form of p
-		return true
-	on error
-		return false
-	end try
+	return my isDirectoryPath(p)
 end pathExists
 
 -- Preferencias persistentes (defaults)
 on getPref(key, defaultValue)
 	try
-		return do shell script "defaults read com.watermark.app " & key
+		set defaults to current application's NSUserDefaults's alloc()'s initWithSuiteName:"com.watermark.app"
+		set valueText to defaults's stringForKey:key
+		if valueText is missing value then return defaultValue
+		return valueText as text
 	on error
 		return defaultValue
 	end try
 end getPref
 
 on setPref(key, value)
-	do shell script "defaults write com.watermark.app " & key & " " & quoted form of value
+	set defaults to current application's NSUserDefaults's alloc()'s initWithSuiteName:"com.watermark.app"
+	(defaults's setObject:value forKey:key)
+	defaults's synchronize()
 end setPref
 
 on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality, defaultPos)
-	-- Ventana con 5 campos
-	set alert to current application's NSAlert's alloc()'s init()
-	alert's setMessageText:"Parametros de marca de agua"
-	alert's setInformativeText:"Configura los valores y presiona Continuar."
-	alert's addButtonWithTitle:"Continuar"
-	alert's addButtonWithTitle:"Cerrar"
+	set pctVal to my askNumber("Tamano del logo como % del ancho de la foto (12 a 25 recomendado):", defaultPct)
+	set opVal to my askNumber("Opacidad del logo (0 a 100):", defaultOpacity)
+	set marginVal to my askNumber("Margen en pixeles:", defaultMargin)
+	set qualityVal to my askNumber("Calidad JPG (80 a 100). Recomendado 92-98:", defaultQuality)
+	set posChoice to my chooseFromListValue({"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"}, "Elige la posicion:", defaultPos)
+	if posChoice is false then error number -128
+	set posStr to posChoice
 
-	-- Vista contenedora
-	set boxW to 360
-	set boxH to 185
-	set v to current application's NSView's alloc()'s initWithFrame:{{0, 0}, {boxW, boxH}}
-
-	-- Labels + fields
-	set lbl1 to my makeLabel("Tamano (%)", 0, 150)
-	set fld1 to my makeField(defaultPct as text, 140, 145, 200)
-
-	set lbl2 to my makeLabel("Opacidad (0-100)", 0, 115)
-	set fld2 to my makeField(defaultOpacity as text, 140, 110, 200)
-
-	set lbl3 to my makeLabel("Margen (px)", 0, 80)
-	set fld3 to my makeField(defaultMargin as text, 140, 75, 200)
-
-	set lbl4 to my makeLabel("Calidad JPG (80-100)", 0, 45)
-	set fld4 to my makeField(defaultQuality as text, 140, 40, 200)
-
-	set lbl5 to my makeLabel("Posicion", 0, 10)
-	set popPos to my makePopup({"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"}, defaultPos, 140, 5, 200)
-
-	v's addSubview:lbl1
-	v's addSubview:fld1
-	v's addSubview:lbl2
-	v's addSubview:fld2
-	v's addSubview:lbl3
-	v's addSubview:fld3
-	v's addSubview:lbl4
-	v's addSubview:fld4
-	v's addSubview:lbl5
-	v's addSubview:popPos
-
-	alert's setAccessoryView:v
-
-	set response to alert's runModal()
-	if response is not (current application's NSAlertFirstButtonReturn) then error number -128
-
-	-- Leer valores
-	set pctStr to (fld1's stringValue()) as text
-	set opStr to (fld2's stringValue()) as text
-	set marginStr to (fld3's stringValue()) as text
-	set qualityStr to (fld4's stringValue()) as text
-	set posStr to (popPos's titleOfSelectedItem()) as text
-
-	-- Validar / convertir a int con fallback
-	set pctVal to my toInt(pctStr, defaultPct)
-	set opVal to my toInt(opStr, defaultOpacity)
-	set marginVal to my toInt(marginStr, defaultMargin)
-	set qualityVal to my toInt(qualityStr, defaultQuality)
-
-	-- Opcional: limites razonables
 	if pctVal < 1 then set pctVal to 1
 	if opVal < 0 then set opVal to 0
 	if opVal > 100 then set opVal to 100
@@ -355,8 +295,9 @@ on filterExistingFiles(rawList)
 	repeat with f in rawList
 		try
 			set p to my toPosixPath(f)
-			do shell script "/bin/test -f " & quoted form of p
+			if my isRegularFile(p) then
 			set end of outList to p
+			end if
 		on error
 			-- skip invalid items
 		end try
@@ -364,123 +305,270 @@ on filterExistingFiles(rawList)
 	return outList
 end filterExistingFiles
 
-on startProgressWindow(titleText, totalCount)
-	set alert to current application's NSAlert's alloc()'s init()
-	alert's setMessageText:titleText
-	alert's addButtonWithTitle:"Cerrar"
-
-	set boxW to 360
-	set boxH to 70
-	set v to current application's NSView's alloc()'s initWithFrame:{{0, 0}, {boxW, boxH}}
-
-	set bar to current application's NSProgressIndicator's alloc()'s initWithFrame:{{20, 20}, {320, 20}}
-	bar's setIndeterminate:false
-	bar's setMinValue:0
-	bar's setMaxValue:totalCount
-	bar's setDoubleValue:0
-	bar's setUsesThreadedAnimation:false
-	bar's startAnimation:(missing value)
-
-	set lbl to current application's NSTextField's alloc()'s initWithFrame:{{20, 45}, {320, 20}}
-	lbl's setStringValue:"0%  ETA: --"
-	lbl's setBezeled:false
-	lbl's setDrawsBackground:false
-	lbl's setEditable:false
-	lbl's setSelectable:false
-	lbl's setAlignment:(current application's NSTextAlignmentCenter)
-
-	v's addSubview:bar
-	v's addSubview:lbl
-
-	alert's setAccessoryView:v
-	-- Mostrar sin bloquear el loop
-	set mainWin to current application's NSApp's mainWindow
-	if mainWin is missing value then set mainWin to current application's NSApp's keyWindow
-	if mainWin is not missing value then
-		alert's beginSheetModalForWindow:mainWin completionHandler:(missing value)
-	else
-		-- Fallback: mostrar igual, aunque sea modal
-		alert's runModal()
+on chooseImageFiles(promptText, defaultDir)
+	set scriptLines to {"set chosenItems to choose file with prompt " & my appleScriptString(promptText) & " of type {\"public.image\"} with multiple selections allowed"}
+	if defaultDir is not missing value and defaultDir is not "" and my pathExists(defaultDir) then
+		set scriptLines to {"set chosenItems to choose file with prompt " & my appleScriptString(promptText) & " of type {\"public.image\"} default location ((POSIX file " & my appleScriptString(defaultDir) & ") as alias) with multiple selections allowed"}
 	end if
+	set scriptLines to scriptLines & {"set outText to \"\"", "repeat with f in chosenItems", "set outText to outText & POSIX path of f & linefeed", "end repeat", "return outText"}
+	return my runChoicePaths(scriptLines)
+end chooseImageFiles
 
-	return {alert:alert, bar:bar, label:lbl, startDate:(current date), total:totalCount, lastDate:(current date), lastCount:0, rate:missing value}
+on chooseSingleFile(promptText, defaultDir, allowedTypes)
+	set typeLiteral to my appleScriptListLiteral(allowedTypes)
+	if defaultDir is not missing value and defaultDir is not "" and my pathExists(defaultDir) then
+		return my runOSA({"return POSIX path of (choose file with prompt " & my appleScriptString(promptText) & " of type " & typeLiteral & " default location ((POSIX file " & my appleScriptString(defaultDir) & ") as alias))"})
+	end if
+	return my runOSA({"return POSIX path of (choose file with prompt " & my appleScriptString(promptText) & " of type " & typeLiteral & ")"})
+end chooseSingleFile
+
+on chooseOutputFolder(promptText, defaultDir)
+	if defaultDir is not missing value and defaultDir is not "" and my pathExists(defaultDir) then
+		set folderPath to my runOSA({"return POSIX path of (choose folder with prompt " & my appleScriptString(promptText) & " default location ((POSIX file " & my appleScriptString(defaultDir) & ") as alias))"})
+	else
+		set folderPath to my runOSA({"return POSIX path of (choose folder with prompt " & my appleScriptString(promptText) & ")"})
+	end if
+	if folderPath does not end with "/" then set folderPath to folderPath & "/"
+	return folderPath
+end chooseOutputFolder
+
+on chooseFilesWithPanel(promptText, defaultDir, allowedTypes, allowMultiple, chooseDirectories)
+	if my asBoolean(chooseDirectories) then
+		return {my chooseOutputFolder(promptText, defaultDir)}
+	end if
+	if my asBoolean(allowMultiple) then
+		set chosenItems to my chooseImageFiles(promptText, defaultDir)
+		set chosenPaths to {}
+		repeat with f in chosenItems
+			set end of chosenPaths to POSIX path of f
+		end repeat
+		return chosenPaths
+	end if
+	return {my chooseSingleFile(promptText, defaultDir, allowedTypes)}
+end chooseFilesWithPanel
+
+on asBoolean(valueObj)
+	if class of valueObj is boolean then return valueObj
+	if class of valueObj is list then
+		if (count of valueObj) is 0 then return false
+		return my asBoolean(item 1 of valueObj)
+	end if
+	if valueObj is missing value then return false
+	try
+		return (valueObj as boolean)
+	on error
+		return false
+	end try
+end asBoolean
+
+on promptForText(promptText, defaultValue)
+	try
+		return my runOSA({"set d to display dialog " & my appleScriptString(promptText) & " default answer " & my appleScriptString(defaultValue as text) & " buttons {\"Cancelar\", \"OK\"} default button \"OK\" cancel button \"Cancelar\"", "return text returned of d"})
+	on error errMsg number errNum
+		if errNum is 1 or errNum is -128 then error number -128
+		error errMsg number errNum
+	end try
+end promptForText
+
+on askChoice(titleText, informativeText, buttonList, defaultButton)
+	try
+		return my runOSA({"set d to display dialog " & my appleScriptString(titleText & return & return & informativeText) & " buttons " & my appleScriptListLiteral(buttonList) & " default button " & my appleScriptString(defaultButton), "return button returned of d"})
+	on error errMsg number errNum
+		if errNum is 1 or errNum is -128 then error number -128
+		error errMsg number errNum
+	end try
+end askChoice
+
+on showMessage(titleText, informativeText)
+	my runOSA({"display dialog " & my appleScriptString(titleText & return & return & informativeText) & " buttons {\"OK\"} default button \"OK\""})
+end showMessage
+
+on runShell(commandText)
+	set task to current application's NSTask's alloc()'s init()
+	set outPipe to current application's NSPipe's pipe()
+	task's setLaunchPath:"/bin/zsh"
+	task's setArguments:{"-lc", commandText & " 2>&1"}
+	task's setStandardOutput:outPipe
+	task's |launch|()
+	task's |waitUntilExit|()
+
+	set outputData to (outPipe's fileHandleForReading()'s readDataToEndOfFile())
+	set outputText to my stringFromData(outputData)
+	set exitCode to (task's terminationStatus()) as integer
+	if exitCode is not 0 then error outputText number exitCode
+	return my trimText(outputText)
+end runShell
+
+on runOSA(scriptLines)
+	set cmd to "/usr/bin/osascript"
+	repeat with lineText in scriptLines
+		set cmd to cmd & " -e " & my shellQuote(lineText as text)
+	end repeat
+	return my runShell(cmd)
+end runOSA
+
+on runChoicePaths(scriptLines)
+	try
+		set outputText to my runOSA(scriptLines)
+	on error errMsg number errNum
+		if errNum is 1 or errNum is -128 then error number -128
+		error errMsg number errNum
+	end try
+	return my splitLines(outputText)
+end runChoicePaths
+
+on chooseFromListValue(itemList, promptText, defaultValue)
+	try
+		set outputText to my runOSA({"set pickedItems to choose from list " & my appleScriptListLiteral(itemList) & " with prompt " & my appleScriptString(promptText) & " default items {" & my appleScriptString(defaultValue) & "}", "if pickedItems is false then error number -128", "return item 1 of pickedItems"})
+		return outputText
+	on error errMsg number errNum
+		if errNum is 1 or errNum is -128 then return false
+		error errMsg number errNum
+	end try
+end chooseFromListValue
+
+on splitLines(rawText)
+	set cleanText to my trimText(rawText)
+	if cleanText is "" then return {}
+	set oldTids to AppleScript's text item delimiters
+	set AppleScript's text item delimiters to linefeed
+	set parts to text items of cleanText
+	set AppleScript's text item delimiters to oldTids
+	return parts
+end splitLines
+
+on appleScriptString(t)
+	set s to t as text
+	set nsText to current application's NSString's stringWithString:s
+	set escapedText to nsText's stringByReplacingOccurrencesOfString:"\\" withString:"\\\\"
+	set escapedText to escapedText's stringByReplacingOccurrencesOfString:"\"" withString:"\\\""
+	set escapedText to escapedText's stringByReplacingOccurrencesOfString:(character id 13) withString:""
+	return "\"" & (escapedText as text) & "\""
+end appleScriptString
+
+on appleScriptListLiteral(itemList)
+	set literalItems to {}
+	repeat with itemValue in itemList
+		set end of literalItems to my appleScriptString(itemValue as text)
+	end repeat
+	set oldTids to AppleScript's text item delimiters
+	set AppleScript's text item delimiters to ", "
+	set literalText to "{" & (literalItems as text) & "}"
+	set AppleScript's text item delimiters to oldTids
+	return literalText
+end appleScriptListLiteral
+
+on stringFromData(dataValue)
+	if dataValue is missing value then return ""
+	set nsString to current application's NSString's alloc()'s initWithData:dataValue encoding:(current application's NSUTF8StringEncoding)
+	if nsString is missing value then return ""
+	return nsString as text
+end stringFromData
+
+on trimText(t)
+	set nsText to current application's NSString's stringWithString:(t as text)
+	set trimmed to nsText's stringByTrimmingCharactersInSet:(current application's NSCharacterSet's whitespaceAndNewlineCharacterSet())
+	return trimmed as text
+end trimText
+
+on shellQuote(t)
+	set s to t as text
+	set AppleScript's text item delimiters to "'"
+	set parts to every text item of s
+	set AppleScript's text item delimiters to "'\\''"
+	set escaped to parts as text
+	set AppleScript's text item delimiters to ""
+	return "'" & escaped & "'"
+end shellQuote
+
+on appendTextLine(filePath, lineText)
+	set fm to current application's NSFileManager's defaultManager()
+	set contentText to (lineText as text) & linefeed
+	set contentData to (current application's NSString's stringWithString:contentText)'s dataUsingEncoding:(current application's NSUTF8StringEncoding)
+	if (fm's fileExistsAtPath:filePath) as boolean then
+		set fileHandle to current application's NSFileHandle's fileHandleForWritingAtPath:filePath
+		fileHandle's seekToEndOfFile()
+		fileHandle's writeData:contentData
+		fileHandle's closeFile()
+	else
+		(contentData's writeToFile:filePath atomically:true)
+	end if
+end appendTextLine
+
+on desktopPath()
+	set homePath to (current application's NSHomeDirectory()) as text
+	if homePath does not end with "/" then set homePath to homePath & "/"
+	return homePath & "Desktop/"
+end desktopPath
+
+on nowSeconds()
+	set nowDate to current application's NSDate's |date|()
+	return ((nowDate's timeIntervalSince1970()) as real)
+end nowSeconds
+
+on nowDateText()
+	set formatter to current application's NSDateFormatter's alloc()'s init()
+	formatter's setDateFormat:"yyyy-MM-dd HH:mm:ss"
+	set nowDate to current application's NSDate's |date|()
+	return (formatter's stringFromDate:nowDate) as text
+end nowDateText
+
+on modalResponseCode(responseValue)
+	try
+		return responseValue as integer
+	on error
+		try
+			return (responseValue's integerValue()) as integer
+		on error
+			return 0
+		end try
+	end try
+end modalResponseCode
+
+on firstAlertButtonCode()
+	return 1000
+end firstAlertButtonCode
+
+on isExecutableFile(p)
+	set fm to current application's NSFileManager's defaultManager()
+	return (fm's isExecutableFileAtPath:p) as boolean
+end isExecutableFile
+
+on isRegularFile(p)
+	set fm to current application's NSFileManager's defaultManager()
+	if (fm's fileExistsAtPath:p) as boolean is false then return false
+	set attrs to fm's attributesOfItemAtPath:p |error|:(missing value)
+	if attrs is missing value then return false
+	set fileTypeValue to attrs's objectForKey:(current application's NSFileType)
+	if fileTypeValue is missing value then return false
+	return ((fileTypeValue as text) is (current application's NSFileTypeRegular as text))
+end isRegularFile
+
+on isDirectoryPath(p)
+	set fm to current application's NSFileManager's defaultManager()
+	if (fm's fileExistsAtPath:p) as boolean is false then return false
+	set attrs to fm's attributesOfItemAtPath:p |error|:(missing value)
+	if attrs is missing value then return false
+	set fileTypeValue to attrs's objectForKey:(current application's NSFileType)
+	if fileTypeValue is missing value then return false
+	return ((fileTypeValue as text) is (current application's NSFileTypeDirectory as text))
+end isDirectoryPath
+
+on startProgressWindow(titleText, totalCount)
+	set nowTs to my nowSeconds()
+	return {title:titleText, total:totalCount, startDate:nowTs}
 end startProgressWindow
 
 on advanceProgressWindow(p)
-	try
-		set bar to bar of p
-		bar's incrementBy:1
-		bar's display()
-
-		set doneCount to (bar's doubleValue()) as real
-		set totalCount to total of p
-		if doneCount > 0 then
-			-- Suavizar usando promedio exponencial para evitar saltos
-			set nowDate to (current date)
-			set lastDateVal to lastDate of p
-			set lastCountVal to lastCount of p
-			set deltaCount to doneCount - lastCountVal
-			set deltaTime to (nowDate - lastDateVal) as real
-			if deltaCount > 0 and deltaTime > 0 then
-				set instantRate to deltaTime / deltaCount
-				if rate of p is missing value then
-					set rate of p to instantRate
-				else
-					set alpha to 0.2
-					set rate of p to ((alpha * instantRate) + ((1 - alpha) * (rate of p)))
-				end if
-				set lastDate of p to nowDate
-				set lastCount of p to doneCount
-			end if
-
-			set pct to my formatPercent(doneCount, totalCount)
-			if rate of p is not missing value then
-				set remaining to (rate of p) * (totalCount - doneCount)
-				set etaText to my formatETA(remaining)
-				set lbl to label of p
-				lbl's setStringValue:(pct & "  ETA: " & etaText)
-				lbl's display()
-			else
-				set lbl to label of p
-				lbl's setStringValue:(pct & "  ETA: --")
-				lbl's display()
-			end if
-		end if
-
-		delay 0.01
-	end try
+	return p
 end advanceProgressWindow
 
 on endProgressWindow(p)
-	try
-		set alert to alert of p
-		set win to alert's window()
-		if win is missing value then return
-		win's orderOut:(missing value)
-	end try
+	return
 end endProgressWindow
 
 on showProgressSummary(p, outDir, totalCount, elapsedText, logInfo)
-	try
-		set alert to alert of p
-		alert's setMessageText:"Listo"
-		alert's setInformativeText:("Archivos guardados en:\n" & outDir & "\n\n" & logInfo)
-		try
-			(alert's messageTextField()'s setAlignment:(current application's NSTextAlignmentCenter))
-			(alert's informativeTextField()'s setAlignment:(current application's NSTextAlignmentCenter))
-		end try
-		try
-			set bar to bar of p
-			bar's setDoubleValue:totalCount
-			bar's display()
-		end try
-		try
-			set lbl to label of p
-			lbl's setStringValue:("Procesadas: " & totalCount & "  Tiempo: " & elapsedText)
-			lbl's setAlignment:(current application's NSTextAlignmentCenter)
-			lbl's display()
-		end try
-	end try
+	my runOSA({"display dialog " & my appleScriptString("Listo" & return & return & "Archivos guardados en:" & return & outDir & return & return & "Procesadas: " & totalCount & "  Tiempo: " & elapsedText & return & return & logInfo) & " buttons {\"OK\"} default button \"OK\""})
 end showProgressSummary
 
 on formatETA(secondsVal)
