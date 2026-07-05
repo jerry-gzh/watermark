@@ -250,13 +250,12 @@ on setPref(key, value)
 end setPref
 
 on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality, defaultPos)
-	set pctVal to my askNumber("Tamano del logo como % del ancho de la foto (12 a 25 recomendado):", defaultPct)
-	set opVal to my askNumber("Opacidad del logo (0 a 100):", defaultOpacity)
-	set marginVal to my askNumber("Margen en pixeles:", defaultMargin)
-	set qualityVal to my askNumber("Calidad JPG (80 a 100). Recomendado 92-98:", defaultQuality)
-	set posChoice to my chooseFromListValue({"Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha", "Centro"}, "Elige la posicion:", defaultPos)
-	if posChoice is false then error number -128
-	set posStr to posChoice
+	set formValues to my promptParamsForm(defaultPct, defaultOpacity, defaultMargin, defaultQuality, defaultPos)
+	set pctVal to my toInt(wmPct of formValues, defaultPct)
+	set opVal to my toInt(wmOpacity of formValues, defaultOpacity)
+	set marginVal to my toInt(wmMargin of formValues, defaultMargin)
+	set qualityVal to my toInt(jpgQuality of formValues, defaultQuality)
+	set posStr to posChoice of formValues
 
 	if pctVal < 1 then set pctVal to 1
 	if opVal < 0 then set opVal to 0
@@ -267,6 +266,39 @@ on promptParams(defaultPct, defaultOpacity, defaultMargin, defaultQuality, defau
 
 	return {wmPct:pctVal, wmOpacity:opVal, wmMargin:marginVal, jpgQuality:qualityVal, posChoice:posStr}
 end promptParams
+
+on promptParamsForm(defaultPct, defaultOpacity, defaultMargin, defaultQuality, defaultPos)
+	set scriptLines to {"use framework \"Foundation\"", "use framework \"AppKit\"", "set appInstance to current application's NSApplication's sharedApplication()", "appInstance's setActivationPolicy:(current application's NSApplicationActivationPolicyRegular)", "appInstance's activateIgnoringOtherApps:true", "set alert to current application's NSAlert's alloc()'s init()", "alert's setMessageText:\"Parametros de marca de agua\"", "alert's setInformativeText:\"Configura los valores y presiona Continuar.\"", "(alert's addButtonWithTitle:\"Continuar\")", "(alert's addButtonWithTitle:\"Cancelar\")", "set boxW to 360", "set boxH to 185", "set containerView to current application's NSView's alloc()'s initWithFrame:{{0, 0}, {boxW, boxH}}"}
+	set scriptLines to scriptLines & {"set lbl1 to current application's NSTextField's alloc()'s initWithFrame:{{0, 150}, {130, 24}}", "lbl1's setStringValue:\"Tamano (%)\"", "lbl1's setBezeled:false", "lbl1's setDrawsBackground:false", "lbl1's setEditable:false", "lbl1's setSelectable:false", "set fld1 to current application's NSTextField's alloc()'s initWithFrame:{{140, 145}, {200, 24}}", "fld1's setStringValue:" & my appleScriptString(defaultPct as text), "fld1's setEditable:true", "fld1's setSelectable:true", "fld1's setBezeled:true", "fld1's setDrawsBackground:true"}
+	set scriptLines to scriptLines & {"set lbl2 to current application's NSTextField's alloc()'s initWithFrame:{{0, 115}, {130, 24}}", "lbl2's setStringValue:\"Opacidad (0-100)\"", "lbl2's setBezeled:false", "lbl2's setDrawsBackground:false", "lbl2's setEditable:false", "lbl2's setSelectable:false", "set fld2 to current application's NSTextField's alloc()'s initWithFrame:{{140, 110}, {200, 24}}", "fld2's setStringValue:" & my appleScriptString(defaultOpacity as text), "fld2's setEditable:true", "fld2's setSelectable:true", "fld2's setBezeled:true", "fld2's setDrawsBackground:true"}
+	set scriptLines to scriptLines & {"set lbl3 to current application's NSTextField's alloc()'s initWithFrame:{{0, 80}, {130, 24}}", "lbl3's setStringValue:\"Margen (px)\"", "lbl3's setBezeled:false", "lbl3's setDrawsBackground:false", "lbl3's setEditable:false", "lbl3's setSelectable:false", "set fld3 to current application's NSTextField's alloc()'s initWithFrame:{{140, 75}, {200, 24}}", "fld3's setStringValue:" & my appleScriptString(defaultMargin as text), "fld3's setEditable:true", "fld3's setSelectable:true", "fld3's setBezeled:true", "fld3's setDrawsBackground:true"}
+	set scriptLines to scriptLines & {"set lbl4 to current application's NSTextField's alloc()'s initWithFrame:{{0, 45}, {130, 24}}", "lbl4's setStringValue:\"Calidad JPG (80-100)\"", "lbl4's setBezeled:false", "lbl4's setDrawsBackground:false", "lbl4's setEditable:false", "lbl4's setSelectable:false", "set fld4 to current application's NSTextField's alloc()'s initWithFrame:{{140, 40}, {200, 24}}", "fld4's setStringValue:" & my appleScriptString(defaultQuality as text), "fld4's setEditable:true", "fld4's setSelectable:true", "fld4's setBezeled:true", "fld4's setDrawsBackground:true"}
+	set scriptLines to scriptLines & {"set lbl5 to current application's NSTextField's alloc()'s initWithFrame:{{0, 10}, {130, 24}}", "lbl5's setStringValue:\"Posicion\"", "lbl5's setBezeled:false", "lbl5's setDrawsBackground:false", "lbl5's setEditable:false", "lbl5's setSelectable:false", "set popPos to current application's NSPopUpButton's alloc()'s initWithFrame:{{140, 5}, {200, 24}} pullsDown:false", "popPos's setEnabled:true", "repeat with itemTitle in {\"Arriba izquierda\", \"Arriba derecha\", \"Abajo izquierda\", \"Abajo derecha\", \"Centro\"}", "(popPos's addItemWithTitle:(itemTitle as text))", "end repeat", "(popPos's selectItemWithTitle:" & my appleScriptString(defaultPos as text) & ")"}
+	set scriptLines to scriptLines & {"containerView's addSubview:lbl1", "containerView's addSubview:fld1", "containerView's addSubview:lbl2", "containerView's addSubview:fld2", "containerView's addSubview:lbl3", "containerView's addSubview:fld3", "containerView's addSubview:lbl4", "containerView's addSubview:fld4", "containerView's addSubview:lbl5", "containerView's addSubview:popPos", "alert's setAccessoryView:containerView", "appInstance's activateIgnoringOtherApps:true", "set responseCode to (alert's runModal()) as integer", "if responseCode is not 1000 then error number -128", "set outLines to {\"wmPct=\" & ((fld1's stringValue()) as text), \"wmOpacity=\" & ((fld2's stringValue()) as text), \"wmMargin=\" & ((fld3's stringValue()) as text), \"jpgQuality=\" & ((fld4's stringValue()) as text), \"posChoice=\" & ((popPos's titleOfSelectedItem()) as text)}", "set oldTids to AppleScript's text item delimiters", "set AppleScript's text item delimiters to linefeed", "set outText to outLines as text", "set AppleScript's text item delimiters to oldTids", "return outText"}
+	try
+		set rawText to my runOSA(scriptLines)
+	on error errMsg number errNum
+		if my isUserCancelError(errMsg, errNum) then error number -128
+		error errMsg number errNum
+	end try
+	return my parsePromptParamsResult(rawText)
+end promptParamsForm
+
+on parsePromptParamsResult(rawText)
+	set lineItems to my splitLines(rawText)
+	return {wmPct:my valueForSerializedKey(lineItems, "wmPct"), wmOpacity:my valueForSerializedKey(lineItems, "wmOpacity"), wmMargin:my valueForSerializedKey(lineItems, "wmMargin"), jpgQuality:my valueForSerializedKey(lineItems, "jpgQuality"), posChoice:my valueForSerializedKey(lineItems, "posChoice")}
+end parsePromptParamsResult
+
+on valueForSerializedKey(lineItems, keyName)
+	set keyPrefix to keyName & "="
+	repeat with lineText in lineItems
+		set currentLine to contents of lineText
+		if currentLine starts with keyPrefix then
+			return text ((length of keyPrefix) + 1) thru -1 of currentLine
+		end if
+	end repeat
+	error "Missing serialized key: " & keyName number 1001
+end valueForSerializedKey
 
 on normalizeInput(rawInput)
 	if rawInput is missing value then return {}
@@ -374,7 +406,7 @@ on askChoice(titleText, informativeText, buttonList, defaultButton)
 	try
 		return my runOSA({"set d to display dialog " & my appleScriptString(titleText & return & return & informativeText) & " buttons " & my appleScriptListLiteral(buttonList) & " default button " & my appleScriptString(defaultButton), "return button returned of d"})
 	on error errMsg number errNum
-		if errNum is 1 or errNum is -128 then error number -128
+		if my isUserCancelError(errMsg, errNum) then error number -128
 		error errMsg number errNum
 	end try
 end askChoice
@@ -411,7 +443,7 @@ on runChoicePaths(scriptLines)
 	try
 		set outputText to my runOSA(scriptLines)
 	on error errMsg number errNum
-		if errNum is 1 or errNum is -128 then error number -128
+		if my isUserCancelError(errMsg, errNum) then error number -128
 		error errMsg number errNum
 	end try
 	return my splitLines(outputText)
@@ -422,10 +454,19 @@ on chooseFromListValue(itemList, promptText, defaultValue)
 		set outputText to my runOSA({"set pickedItems to choose from list " & my appleScriptListLiteral(itemList) & " with prompt " & my appleScriptString(promptText) & " default items {" & my appleScriptString(defaultValue) & "}", "if pickedItems is false then error number -128", "return item 1 of pickedItems"})
 		return outputText
 	on error errMsg number errNum
-		if errNum is 1 or errNum is -128 then return false
+		if my isUserCancelError(errMsg, errNum) then return false
 		error errMsg number errNum
 	end try
 end chooseFromListValue
+
+on isUserCancelError(errMsg, errNum)
+	if errNum is -128 then return true
+	if errNum is 1 then
+		set errText to errMsg as text
+		if errText contains "(-128)" then return true
+	end if
+	return false
+end isUserCancelError
 
 on splitLines(rawText)
 	set cleanText to my trimText(rawText)
